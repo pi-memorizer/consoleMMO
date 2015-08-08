@@ -334,8 +334,10 @@ public class VirtualConsole
 				d.writeByte(l.x2);
 				d.writeByte(l.y1);
 				d.writeByte(l.y2);
-				d.writeShort(l.data.length);
-				d.write(l.data);
+				byte [] b = l.data;
+				d.writeShort(b.length);
+				for(int x = 0; x < b.length; x++)
+					d.writeByte(b[x]);
 				d.writeUTF(l.altText);
 			}
 		} catch(Exception e) {e.printStackTrace();}

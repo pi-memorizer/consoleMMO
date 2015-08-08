@@ -18,7 +18,6 @@ public class Request extends Thread
 	{
 		this.main = main;
 		this.sock = sock;
-		System.out.println(sock.getInetAddress().getHostAddress());
 	}
 	
 	public void run()
@@ -26,13 +25,13 @@ public class Request extends Thread
 		BufferedOutputStream bos = null;
 		DataOutputStream dos = null;
 		DataInputStream dis = null;
-		try {
+		try
+		{
 			bos = new BufferedOutputStream(sock.getOutputStream(), 5000);
 			dos = new DataOutputStream(bos);
 			dis = new DataInputStream(sock.getInputStream());
 			short command = -1;
 			boolean readBool = dis.readBoolean();
-			System.out.println(readBool);
 			//if(dis.readBoolean())
 			if(readBool)
 			{
@@ -191,9 +190,7 @@ public class Request extends Thread
 				}
 				break;
 			}
-			sock.shutdownOutput();
 			sock.close();
-			System.out.println(sock.getInetAddress().getHostAddress() + " is closed.");
 		} catch(Exception e)
 		{
 			e.printStackTrace();

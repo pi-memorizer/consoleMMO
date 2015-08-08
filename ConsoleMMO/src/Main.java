@@ -102,8 +102,8 @@ public class Main
 			while(true)
 			{
 				Socket sock = servSock.accept();
-				sock.setSoTimeout(10000);
-				sock.setSoLinger(true, 10000);
+				sock.setSoTimeout(1000);
+				sock.setSoLinger(true, 1);
 				new Request(this,sock).start();
 			}
 		} catch(Exception e) {

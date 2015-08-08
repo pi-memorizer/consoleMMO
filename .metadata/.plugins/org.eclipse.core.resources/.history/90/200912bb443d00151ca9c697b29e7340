@@ -1,0 +1,230 @@
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.FileOutputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.net.Socket;
+import java.nio.ByteBuffer;
+
+public class Main
+{
+	int id = -1;
+	DataInputStream dis = null;
+	BufferedOutputStream bos = null;
+	DataOutputStream dos = null;
+	Console console = new Console();
+	Link [] links = new Link[10];
+	int numLinks = 0;
+	boolean leftClicked = false;
+	boolean rightClicked = false;
+	int clickX = 0;
+	int clickY = 0;
+	Socket sock = null;
+	String ip;
+	int port;
+	
+	public static void main(String [] args)
+	{
+		Main main = new Main();
+		try {
+			main.$main();
+		} catch(Exception e)
+		{
+			e.printStackTrace();
+			/*
+			try {
+				DataOutputStream dos = new DataOutputStream(new FileOutputStream("crash-log.txt", true));
+				final StringWriter sw = new StringWriter();
+			     final PrintWriter pw = new PrintWriter(sw, true);
+			     e.printStackTrace(pw);
+				String s = sw.getBuffer().toString();
+				for(int i = 0; i < s.length(); i++)
+					dos.writeChar(s.charAt(i));
+				dos.close();
+			} catch(Exception e2) {}*/
+		}
+	}
+	
+	void $main() throws Exception
+	{
+		console.addMouseListener(new MouseListener(){
+			public void mouseClicked(MouseEvent arg0) {}
+			public void mouseEntered(MouseEvent arg0) {}
+			public void mouseExited(MouseEvent arg0) {}
+			public void mousePressed(MouseEvent arg0) {}
+			public void mouseReleased(MouseEvent arg0) {
+				if(arg0.getButton()==1)
+					leftClicked = true;
+				if(arg0.getButton()==3)
+					rightClicked = true;
+				clickX = (arg0.getX()-console.getInsets().left)/8;
+				clickY = (arg0.getY()-console.getInsets().top)/12;
+			}
+		});
+		boolean sessionValid = false;
+		while(true)
+		{
+			console.color(7);
+			console.cls();
+			console.out("Server IP: ");
+			console.display();
+			ip = console.getString();
+			console.out("Server Port: ");
+			console.display();
+			port = console.getInt();
+			console.out("Username: ");
+			console.display();
+			String username = console.getString(20);
+			while(username.length()<3)
+			{
+				console.out("Username (must be at least 3 characters): ");
+				console.display();
+				username = console.getString(20);
+			}
+			console.out("Password: ");
+			console.display();
+			String password = console.getPassword(20);
+			console.cls();
+			
+			//try {
+				sock = new Socket(ip,port);
+				sock.setSoTimeout(3600000);
+				sock.setSoLinger(true,3600);
+				dis = new DataInputStream(sock.getInputStream());
+				bos = new BufferedOutputStream(sock.getOutputStream(), 5000);
+				dos = new DataOutputStream(bos);
+				dos.writeBoolean(false);
+				dos.writeUTF(username);
+				dos.writeUTF(password);
+				bos.flush();
+				id = dis.readInt();
+				readPage();
+				sock.close();
+				sessionValid = true;
+				
+				while(sessionValid)
+				{
+					//wait for click
+					boolean escape = false;
+					byte [] bytesToRequest = null;
+					while(!escape)
+					{
+						while(!(leftClicked||rightClicked))
+						{
+							Thread.sleep(5);
+						}
+						if(leftClicked)
+						{
+							for(int i = numLinks-1; i >= 0; i--)
+								if(clickX>=links[i].x1&&clickX<=links[i].x2&&clickY>=links[i].y1&&clickY<=links[i].y2)
+								{
+									if(links[i].type==0)
+									{
+										escape = true;
+										bytesToRequest = links[i].data;
+										leftClicked = false;
+										rightClicked = false;
+									}
+									if(links[i].type==1)
+										sessionValid = false;
+									if(links[i].type==2)
+									{
+										ip = new String(links[i].data, "UTF-8");
+									}
+									if(links[i].type==3)
+									{
+										port = ByteBuffer.wrap(links[i].data).getInt();
+									}
+									break;
+								}
+						}
+						if(rightClicked)
+						{
+							for(int i = numLinks-1; i >= 0; i--)
+								if(clickX>=links[i].x1&&clickX<=links[i].x2&&clickY>=links[i].y1&&clickY<=links[i].y2)
+								{
+									console.setTitle(links[i].altText);
+									leftClicked = false;
+									rightClicked = false;
+								}
+						}
+					}
+					if(sessionValid)
+					{
+						processRequest(bytesToRequest);
+						readPage();
+						sock.close();
+					}
+				}
+			//} catch (Exception e) {
+				//e.printStackTrace();
+			//}
+		}
+	}
+	
+	void processRequest(byte [] data) throws Exception
+	{
+		//try {
+			//sock = new Socket(ip,port);
+			//sock.setSoLinger(true, 1);
+			//sock.setSoTimeout(1000);
+			//dis = new DataInputStream(new BufferedInputStream(sock.getInputStream(),10000));
+			//bos = new BufferedOutputStream(sock.getOutputStream(), 5000);
+			//dos = new DataOutputStream(bos);
+			dos.writeBoolean(true);
+			dos.writeInt(id);
+			dos.write(data);
+			bos.flush();
+		//} catch (Exception e) {
+			//e.printStackTrace();
+		//}
+	}
+	void readPage() throws Exception
+	{
+		//try {
+			String parseString = dis.readUTF();
+			numLinks = dis.readShort();
+			if(numLinks>links.length)
+				links = new Link[numLinks*3/2];
+			for(int i = 0; i < numLinks; i++)
+			{
+				links[i] = new Link();
+				links[i].type = dis.readByte();
+				links[i].x1 = dis.readByte();
+				links[i].x2 = dis.readByte();
+				links[i].y1 = dis.readByte();
+				links[i].y2 = dis.readByte();
+				int l = dis.readShort();
+				links[i].data = new byte[l];
+				dis.read(links[i].data);
+				links[i].altText = dis.readUTF();
+			}
+			console.color(7);
+			console.cls();
+			for(int i = 0; i < parseString.length(); i++)
+			{
+				if(parseString.charAt(i)==(char)0)
+				{
+					console.color((byte)parseString.charAt(i+1));
+					i++;
+				} else console.out(parseString.charAt(i));
+			}
+			console.display();
+		//} catch(Exception e)
+		//{
+			//e.printStackTrace();
+		//}
+	}
+}
+
+class Link
+{
+	byte type;
+	byte x1,x2,y1,y2;
+	byte [] data;
+	String altText;
+}

@@ -1,11 +1,9 @@
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.FileOutputStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 
@@ -29,24 +27,10 @@ public class Main
 	public static void main(String [] args)
 	{
 		Main main = new Main();
-		try {
-			main.$main();
-		} catch(Exception e)
-		{
-			try {
-				DataOutputStream dos = new DataOutputStream(new FileOutputStream("crash-log.txt", true));
-				final StringWriter sw = new StringWriter();
-			     final PrintWriter pw = new PrintWriter(sw, true);
-			     e.printStackTrace(pw);
-				String s = sw.getBuffer().toString();
-				for(int i = 0; i < s.length(); i++)
-					dos.writeChar(s.charAt(i));
-				dos.close();
-			} catch(Exception e2) {}
-		}
+		main.$main();
 	}
 	
-	void $main() throws Exception
+	void $main()
 	{
 		console.addMouseListener(new MouseListener(){
 			public void mouseClicked(MouseEvent arg0) {}
@@ -87,10 +71,10 @@ public class Main
 			String password = console.getPassword(20);
 			console.cls();
 			
-			//try {
+			try {
 				sock = new Socket(ip,port);
-				sock.setSoTimeout(10000);
-				sock.setSoLinger(true,10000);
+				sock.setSoTimeout(1000);
+				sock.setSoLinger(true,1);
 				dis = new DataInputStream(sock.getInputStream());
 				bos = new BufferedOutputStream(sock.getOutputStream(), 5000);
 				dos = new DataOutputStream(bos);
@@ -99,9 +83,11 @@ public class Main
 				dos.writeUTF(password);
 				bos.flush();
 				id = dis.readInt();
-				readPage();
+				if(readPage())
+				{
+					sessionValid = true;
+				}
 				sock.close();
-				sessionValid = true;
 				
 				while(sessionValid)
 				{
@@ -157,33 +143,34 @@ public class Main
 						sock.close();
 					}
 				}
-			//} catch (Exception e) {
-				//e.printStackTrace();
-			//}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
 		}
 	}
 	
-	void processRequest(byte [] data) throws Exception
+	boolean processRequest(byte [] data)
 	{
-		//try {
+		try {
 			sock = new Socket(ip,port);
-			sock.setSoLinger(true, 10000);
-			sock.setSoTimeout(10000);
-			dis = new DataInputStream(sock.getInputStream());
+			sock.setSoLinger(true, 1);
+			sock.setSoTimeout(1000);
+			dis = new DataInputStream(new BufferedInputStream(sock.getInputStream(),5000));
 			bos = new BufferedOutputStream(sock.getOutputStream(), 5000);
 			dos = new DataOutputStream(bos);
 			dos.writeBoolean(true);
 			dos.writeInt(id);
 			dos.write(data);
 			bos.flush();
-		//} catch (Exception e) {
-			//e.printStackTrace();
-		//}
+			return true;
+		} catch (Exception e) {
+			e.printStackTrace();
+			return false;
+		}
 	}
-	void readPage() throws Exception
+	boolean readPage()
 	{
-		//try {
-			console.cls();
+		try {
 			String parseString = dis.readUTF();
 			numLinks = dis.readShort();
 			if(numLinks>links.length)
@@ -196,12 +183,14 @@ public class Main
 				links[i].x2 = dis.readByte();
 				links[i].y1 = dis.readByte();
 				links[i].y2 = dis.readByte();
-				short l = dis.readShort();
+				int l = dis.readShort();
 				links[i].data = new byte[l];
-				dis.read(links[i].data, 0, l);
+				for(int x = 0; x < l; x++)
+					links[i].data[x] = dis.readByte();
 				links[i].altText = dis.readUTF();
 			}
 			console.color(7);
+			console.cls();
 			for(int i = 0; i < parseString.length(); i++)
 			{
 				if(parseString.charAt(i)==(char)0)
@@ -211,10 +200,19 @@ public class Main
 				} else console.out(parseString.charAt(i));
 			}
 			console.display();
-		//} catch(Exception e)
-		//{
-			//e.printStackTrace();
-		//}
+			return true;
+		} catch(Exception e)
+		{
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
+	void readBytes(DataInputStream in, byte [] b, int l) throws Exception
+	{
+		int off = in.read(b,0,l);
+		while(off<l)
+			off += in.read(b,off,l-off);
 	}
 }
 
